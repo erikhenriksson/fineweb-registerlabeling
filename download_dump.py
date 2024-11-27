@@ -31,8 +31,8 @@ def main():
     parser.add_argument("dump_name", help="Name of the dump (e.g., CC-MAIN-2024-18)")
     parser.add_argument(
         "--local-dir",
-        default="./fineweb",
-        help="Local directory to store the dump (default: ./fineweb)",
+        default="../FINEWEB",
+        help="Local directory to store the dump (default: ../FINEWEB)",
     )
 
     args = parser.parse_args()
