@@ -17,7 +17,7 @@ def download_cc_dump(dump_name: str, local_dir: str = "./fineweb") -> str:
     """
     folder = snapshot_download(
         "HuggingFaceFW/fineweb",
-        repo_type="dataset",
+        # repo_type="dataset",
         local_dir=local_dir,
         allow_patterns=f"data/{dump_name}/*",
     )
