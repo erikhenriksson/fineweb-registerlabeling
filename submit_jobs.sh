@@ -1,51 +1,28 @@
 #!/bin/bash
-# submit_jobs.sh
-# Testing version - shows what would be submitted without actual submission
 
-# Function to print usage
-usage() {
-    echo "Usage: $0 [-t|--test] <parquet_directory>"
-    echo "  -t, --test    Run in test mode (print commands without executing)"
+set -euo pipefail
+
+source common.sh
+
+# Common has:
+# ROOT_DIR, DATA_DIR, PREDICT_DIR, TEST_MODE
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 SUBSET" >&2
+    echo >&2
+    echo "example: $0 CC-MAIN-2013-20" >&2
     exit 1
-}
-
-# Parse command line arguments
-TEST_MODE=false
-PARQUET_DIR=""
-
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        -t|--test)
-            TEST_MODE=true
-            shift
-            ;;
-        *)
-            PARQUET_DIR="$1"
-            shift
-            ;;
-    esac
-done
-
-# Check if directory is provided
-if [ -z "$PARQUET_DIR" ]; then
-    usage
 fi
+SUBSET="$1"
 
-# Get absolute path of the parquet directory
-PARQUET_DIR=$(realpath "$PARQUET_DIR")
+PARQUET_DIR="$ROOT_DIR/$DATA_DIR/$SUBSET"
+PREDICT_DIR="$ROOT_DIR/$PREDICT_DIR/$SUBSET"
+LOG_DIR="$ROOT_DIR/$LOG_DIR/$SUBSET"
 
 # Check if directory exists
 if [ ! -d "$PARQUET_DIR" ]; then
     echo "Error: Directory $PARQUET_DIR does not exist"
     exit 1
-fi
-
-# Create logs directory structure
-LOG_ROOT="logs/$(basename "$PARQUET_DIR")"
-if [ "$TEST_MODE" = false ]; then
-    mkdir -p "$LOG_ROOT"
-else
-    echo "[TEST] Would create log directory: $LOG_ROOT"
 fi
 
 # Get list of all parquet files (just the filenames, not the full path)
@@ -58,6 +35,9 @@ if [ ! -e "${files[0]}" ]; then
     exit 1
 fi
 
+mkdir -p $(dirname "$PREDICT_DIR")
+mkdir -p $(dirname "$LOG_DIR")
+
 total_files=${#files[@]}
 batch_size=8  # Number of GPUs/files to process in parallel
 
@@ -66,7 +46,7 @@ num_batches=$(( (total_files + batch_size - 1) / batch_size ))
 
 echo "Found $total_files files in $PARQUET_DIR"
 echo "Will process in $num_batches batches of up to $batch_size files each"
-echo "Logs will be stored in: $LOG_ROOT"
+echo "Logs will be stored in: $LOG_DIR"
 echo "------------------------"
 
 for ((batch=0; batch<num_batches; batch++)); do
