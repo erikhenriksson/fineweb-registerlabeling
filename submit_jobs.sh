@@ -85,24 +85,14 @@ for ((batch=0; batch<num_batches; batch++)); do
         file_list="${file_list}${files[i]}"
     done
     
-    echo "SBATCH command that would be executed:"
+    echo "Command that would be executed:"
     echo "------------------------"
-    echo "sbatch \\"
-    echo "    --job-name=\"parquet_batch_${batch}\" \\"
-    echo "    --output=\"logs/batch_${batch}_%j.out\" \\"
-    echo "    --error=\"logs/batch_${batch}_%j.err\" \\"
-    echo "    --gres=gpu:8 \\"
-    echo "    process_batch.sh \"$file_list\""
+    echo "sbatch process_batch.sh \"$file_list\""
     echo "------------------------"
     echo ""
     
     if [ "$TEST_MODE" = false ]; then
-        sbatch \
-            --job-name="parquet_batch_${batch}" \
-            --output="logs/batch_${batch}_%j.out" \
-            --error="logs/batch_${batch}_%j.err" \
-            --gres=gpu:8 \
-            process_batch.sh "$file_list"
+        sbatch process_batch.sh "$file_list"
         echo "Submitted batch $batch (files $start to $end)"
     fi
 done
