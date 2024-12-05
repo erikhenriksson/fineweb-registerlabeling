@@ -33,8 +33,8 @@ if [ ! -e "${files[0]}" ]; then
     exit 1
 fi
 
-mkdir -p $(dirname "$PREDICT_DIR")
-mkdir -p $(dirname "$LOG_DIR")
+mkdir -p "$PREDICT_DIR"
+mkdir -p "$LOG_DIR"
 
 total_files=${#files[@]}
 batch_size=8  # Number of GPUs/files to process in parallel
