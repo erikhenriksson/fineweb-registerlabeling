@@ -133,17 +133,8 @@ def main(args):
     # Convert register_probabilities from dict to separate columns
     final_df = pd.json_normalize(df_results)
 
-    # Get output path in predictions directory
-    input_path = args.input_file
-    file_name = os.path.basename(input_path)
-    output_dir = os.path.join(
-        os.path.dirname(os.path.dirname(input_path)), "predictions"
-    )
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, file_name)
-
     # Save just the register probabilities to parquet
-    final_df.to_parquet(output_path, index=False)
+    final_df.to_parquet(args.output_file, index=False)
 
 
 if __name__ == "__main__":
@@ -151,6 +142,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="Path to the input parquet file.")
+    parser.add_argument(
+        "output_file", type=str, help="Path to the output parquet file."
+    )
     parser.add_argument(
         "--model",
         type=str,
