@@ -1,17 +1,27 @@
 #!/bin/bash
-#SBATCH --job-name=parquet-processing
+
+#SBATCH --job-name=fw-registers
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:mi250:8
 #SBATCH --ntasks=8
 #SBATCH --mem=128G
-#SBATCH --time=24:00:00
-#SBATCH --partition=gpu
+#SBATCH --cpus-per-task=4
+#SBATCH --time=12:00:00
+#SBATCH --output=slurm-logs/%j.out
+#SBATCH --error=slurm-logs/%j.err
+#SBATCH --account=project_462000642
+#SBATCH --partition=small-g
 
-# Get the directory and file list from arguments
-PARQUET_DIR="$1"
+set -euo pipefail
+
+source common.sh
+
+SUBSET="$1"
+PARQUET_DIR="$ROOT_DIR/$DATA_DIR/$SUBSET"
+PREDICT_DIR="$ROOT_DIR/$PREDICT_DIR/$SUBSET"
+LOG_DIR="$ROOT_DIR/$LOG_DIR/$SUBSET"
+
 files="$2"
-LOG_DIR="logs/$(basename "$PARQUET_DIR")"
-PREDICT_DIR="/pfs/lustrep3/scratch/project_462000642/FINEWEB/predictions"
 
 # Create logging function
 log_event() {
@@ -30,7 +40,7 @@ for i in "${!file_array[@]}"; do
     full_path="$PARQUET_DIR/$filename"
     
     # Log start time
-    log_event "$filename" "Started processing"
+    log_event "$filename" "START"
     
     # Launch the Python script using srun
     (
@@ -38,7 +48,7 @@ for i in "${!file_array[@]}"; do
             --ntasks=1 \
             --gres=gpu:mi250:1 \
             --mem=16G \
-            python3 process_file.py \
+            python3 process_parquet_file.py \
             "$full_path" \
             "$PREDICT_DIR" \
             &
@@ -47,9 +57,9 @@ for i in "${!file_array[@]}"; do
         
         # Only log completion if successful
         if [ $exit_status -eq 0 ]; then
-            log_event "$filename" "Successfully completed processing"
+            log_event "$filename" "SUCCESS"
         else
-            log_event "$filename" "Failed processing (exit code: $exit_status)"
+            log_event "$filename" "FAIL: $exit_status"
         fi
     ) &
 done

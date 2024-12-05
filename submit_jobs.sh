@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 source common.sh
 
 # Common has:
@@ -13,8 +11,8 @@ if [ "$#" -ne 1 ]; then
     echo "example: $0 CC-MAIN-2013-20" >&2
     exit 1
 fi
-SUBSET="$1"
 
+SUBSET="$1"
 PARQUET_DIR="$ROOT_DIR/$DATA_DIR/$SUBSET"
 PREDICT_DIR="$ROOT_DIR/$PREDICT_DIR/$SUBSET"
 LOG_DIR="$ROOT_DIR/$LOG_DIR/$SUBSET"
@@ -72,12 +70,12 @@ for ((batch=0; batch<num_batches; batch++)); do
     
     echo "Command that would be executed:"
     echo "------------------------"
-    echo "sbatch process_batch.sh \"$PARQUET_DIR\" \"$file_list\""
+    echo "sbatch process_batch.sh \"$SUBSET\" \"$file_list\""
     echo "------------------------"
     echo ""
     
     if [ "$TEST_MODE" = false ]; then
-        sbatch process_batch.sh "$PARQUET_DIR" "$file_list"
+        sbatch process_batch.sh "$SUBSET" "$file_list"
         echo "Submitted batch $batch (files $start to $end)"
     fi
 done
