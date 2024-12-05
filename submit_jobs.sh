@@ -1,4 +1,8 @@
 #!/bin/bash
+# At the start of your script:
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+PROCESS_BATCH="$SCRIPT_DIR/process_batch.sh"
+
 
 source common.sh
 
@@ -75,7 +79,7 @@ for ((batch=0; batch<num_batches; batch++)); do
     echo ""
     
     if [ "$TEST_MODE" = false ]; then
-        sbatch process_batch.sh "$SUBSET" "$file_list"
+        sbatch  "$PROCESS_BATCH" "$SUBSET" "$file_list"
         echo "Submitted batch $batch (files $start to $end)"
     fi
 done
