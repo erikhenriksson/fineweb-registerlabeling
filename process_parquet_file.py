@@ -2,6 +2,7 @@ import torch
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
+import pyarrow.parquet as pq
 
 # Set up model for speed and precision
 device = torch.device("cuda")
@@ -12,7 +13,6 @@ torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
 
 def process_large_file(input_file, chunk_size):
     """Reads a large parquet file in chunks efficiently."""
-    import pyarrow.parquet as pq
 
     current_position = 0
     pf = pq.ParquetFile(input_file)
@@ -62,7 +62,7 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
         probs = torch.sigmoid(logits).cpu().tolist()
 
         for idx, prob in zip(original_indices, probs):
-            register_probs = {id2label[str(i)]: round(p, 4) for i, p in enumerate(prob)}
+            register_probs = {id2label[i]: round(p, 4) for i, p in enumerate(prob)}
             results.append(
                 {
                     "original_index": idx,
