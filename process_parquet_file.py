@@ -3,6 +3,7 @@ import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
 import pyarrow.parquet as pq
+from fastparquet import ParquetFile, write
 
 # Set up model for speed and precision
 device = torch.device("cuda")
@@ -76,21 +77,17 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
 
 def write_incremental_parquet(results, output_file, first_write=False):
     """Write results incrementally to parquet file."""
+
+    # Convert results to DataFrame
     df = pd.json_normalize(results)
 
     if first_write:
-        df.to_parquet(output_file, index=False)
+        # First write - create new file
+        df.to_parquet(output_file, index=False, engine="fastparquet")
     else:
-        # Read existing metadata
-        existing_schema = pd.read_parquet(output_file, columns=[]).dtypes
-
-        # Ensure new chunk matches schema
-        for col in existing_schema.index:
-            if col in df.columns:
-                df[col] = df[col].astype(existing_schema[col])
-
-        # Append to existing file
-        df.to_parquet(output_file, index=False, append=True)
+        # Append to existing file using fastparquet
+        pf = ParquetFile(output_file)
+        write(output_file, df, append=True, file_scheme="simple")
 
 
 def main(args):
