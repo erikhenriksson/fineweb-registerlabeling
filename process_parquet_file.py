@@ -12,15 +12,18 @@ torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
 
 def process_large_file(input_file, chunk_size):
     """Reads a large parquet file in chunks, preserving the original order via indexing."""
-    for chunk_idx, chunk in enumerate(
-        pd.read_parquet(input_file, chunksize=chunk_size)
-    ):
-        # Add original index to track order
-        chunk["original_index"] = chunk.index
+    df = pd.read_parquet(input_file)
+
+    # Process in chunks
+    for i in range(0, len(df), chunk_size):
+        chunk = df.iloc[i : i + chunk_size].copy()
+        # Add sequential index (like in JSONL version)
+        chunk["original_index"] = range(i, i + len(chunk))
         # Sort by text length
-        chunk["text_length"] = chunk["text"].str.len()
-        chunk = chunk.sort_values("text_length", ascending=False)
-        yield chunk.to_dict("records")
+        chunk = chunk.sort_values(by=lambda x: chunk["text"].str.len(), ascending=False)
+        # Convert to records and remove text_length field
+        records = chunk.to_dict("records")
+        yield records
 
 
 def process_chunk(chunk, batch_size, tokenizer, model, id2label):
