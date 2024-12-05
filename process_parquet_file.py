@@ -46,6 +46,7 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
         batch = chunk[i : i + batch_size]
         texts = [item["text"] for item in batch]
         original_indices = [item["original_index"] for item in batch]
+        ids = [item["id"] for item in batch]  # Get the original 'id'
 
         encodings = tokenizer(
             texts,
@@ -62,17 +63,21 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
 
         probs = torch.sigmoid(logits).cpu().tolist()
 
-        for idx, prob in zip(original_indices, probs):
+        for idx, id_, prob in zip(original_indices, ids, probs):  # Include id_ in loop
             register_probs = {id2label[i]: round(p, 4) for i, p in enumerate(prob)}
             results.append(
                 {
                     "original_index": idx,
+                    "id": id_,  # Include id in the result
                     "register_probabilities": register_probs,
                 }
             )
 
     results.sort(key=lambda x: x["original_index"])
-    return [result["register_probabilities"] for result in results]
+    return [
+        {"id": result["id"], "register_probabilities": result["register_probabilities"]}
+        for result in results
+    ]
 
 
 def write_incremental_parquet(results, output_file, first_write=False):
