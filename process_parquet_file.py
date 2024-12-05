@@ -12,24 +12,18 @@ torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
 
 def process_large_file(input_file, chunk_size):
     """Reads a large parquet file in chunks efficiently."""
+    import pyarrow.parquet as pq
+
     current_position = 0
+    pf = pq.ParquetFile(input_file)
 
-    while True:
-        # Read a chunk of rows at once
-        try:
-            chunk_df = pd.read_parquet(
-                input_file, rows=slice(current_position, current_position + chunk_size)
-            )
-        except Exception as e:
-            print(f"Error reading chunk at position {current_position}: {e}")
-            break
-
-        if len(chunk_df) == 0:  # No more data
-            break
+    # Read in our specified chunk sizes
+    for batch in pf.iter_batches(batch_size=chunk_size):
+        df = batch.to_pandas()
 
         # Convert chunk to list of dicts and add indices
         chunk = []
-        for i, row in chunk_df.iterrows():
+        for i, row in df.iterrows():
             document = row.to_dict()
             document["original_index"] = current_position + i
             chunk.append(document)
@@ -38,7 +32,10 @@ def process_large_file(input_file, chunk_size):
         chunk.sort(key=lambda x: len(x["text"]), reverse=True)
 
         yield chunk
-        current_position += len(chunk_df)
+        current_position += len(df)
+
+        # Clear DataFrame to free memory
+        del df
 
 
 def process_chunk(chunk, batch_size, tokenizer, model, id2label):
