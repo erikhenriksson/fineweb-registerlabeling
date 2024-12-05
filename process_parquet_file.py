@@ -1,5 +1,3 @@
-import os
-import json
 import torch
 import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -72,7 +70,7 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
 
 def main(args):
     # Load tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
     model = AutoModelForSequenceClassification.from_pretrained(args.model)
     model.to(device)
     model = torch.compile(
@@ -150,6 +148,12 @@ if __name__ == "__main__":
         type=str,
         default="TurkuNLP/web-register-classification-en",
         help="Model to use",
+    )
+    parser.add_argument(
+        "--base_model",
+        type=str,
+        default="xlm-roberta-large",
+        help="Base model",
     )
     parser.add_argument(
         "--batch_size",
