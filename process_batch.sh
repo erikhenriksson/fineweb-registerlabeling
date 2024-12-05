@@ -37,7 +37,8 @@ IFS=',' read -ra file_array <<< "$files"
 # Process each file
 for i in "${!file_array[@]}"; do
     filename="${file_array[i]}"
-    full_path="$PARQUET_DIR/$filename"
+    input_path="$PARQUET_DIR/$filename"
+    output_path="$PREDICT_DIR/$filename"
     
     # Log start time
     log_event "$filename" "START"
@@ -49,8 +50,8 @@ for i in "${!file_array[@]}"; do
             --gres=gpu:mi250:1 \
             --mem=16G \
             python3 process_parquet_file.py \
-            "$full_path" \
-            "$PREDICT_DIR" \
+            "$input_path" \
+            "$output_path" \
             &
         
         exit_status=$?

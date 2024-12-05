@@ -1,6 +1,7 @@
 import os
 import json
 import torch
+import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import time
 
@@ -12,22 +13,16 @@ torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
 
 
 def process_large_file(input_file, chunk_size):
-    """Reads a large file in chunks, preserving the original order via indexing."""
-    with open(input_file, "r") as f:
-        chunk = []
-        for idx, line in enumerate(f):
-            document = json.loads(line)
-            document["original_index"] = idx  # Track original index
-            chunk.append(document)
-            if len(chunk) >= chunk_size:
-                # Sort each chunk by text length before yielding
-                chunk.sort(key=lambda x: len(x["text"]), reverse=True)
-                yield chunk
-                chunk = []
-        if chunk:
-            # Sort the last chunk if it has any remaining data
-            chunk.sort(key=lambda x: len(x["text"]), reverse=True)
-            yield chunk
+    """Reads a large parquet file in chunks, preserving the original order via indexing."""
+    for chunk_idx, chunk in enumerate(
+        pd.read_parquet(input_file, chunksize=chunk_size)
+    ):
+        # Add original index to track order
+        chunk["original_index"] = chunk.index
+        # Sort by text length
+        chunk["text_length"] = chunk["text"].str.len()
+        chunk = chunk.sort_values("text_length", ascending=False)
+        yield chunk.to_dict("records")
 
 
 def process_chunk(chunk, batch_size, tokenizer, model, id2label):
@@ -37,7 +32,6 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
         batch = chunk[i : i + batch_size]
 
         texts = [item["text"] for item in batch]
-        ids = [item["id"] for item in batch]
         original_indices = [item["original_index"] for item in batch]
 
         # Tokenize with dynamic padding to the longest sequence in the batch
@@ -60,28 +54,20 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
         # Convert logits to probabilities
         probs = torch.sigmoid(logits).cpu().tolist()
 
-        # Store each result with its original index to maintain order
-        for id_, idx, prob in zip(ids, original_indices, probs):
+        # Store each result with its original index
+        for idx, prob in zip(original_indices, probs):
             # Create a dictionary of register names and their probabilities
             register_probs = {id2label[str(i)]: round(p, 4) for i, p in enumerate(prob)}
-
             results.append(
                 {
                     "original_index": idx,
-                    "id": id_,
                     "register_probabilities": register_probs,
                 }
             )
 
     # Sort results by original index to ensure output order matches input order
     results.sort(key=lambda x: x["original_index"])
-    return [
-        {
-            "id": result["id"],
-            "register_probabilities": result["register_probabilities"],
-        }
-        for result in results
-    ]
+    return [result["register_probabilities"] for result in results]
 
 
 def main(args):
@@ -89,55 +75,75 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForSequenceClassification.from_pretrained(args.model)
     model.to(device)
-    if args.compile:
-        model = torch.compile(
-            model,
-            mode="reduce-overhead",
-            fullgraph=True,
-            dynamic=True,
-            backend="inductor",
-        )
+    model = torch.compile(
+        model,
+        mode="reduce-overhead",
+        fullgraph=True,
+        dynamic=True,
+        backend="inductor",
+    )
     model.eval()
 
-    id2label = id2label = model.config.id2label
+    id2label = model.config.id2label
 
-    output_file = args.output_file
     total_items = 0
     total_time = 0.0
-    with open(output_file, "a") as f:
-        for chunk_idx, chunk in enumerate(
-            process_large_file(args.input_file, args.chunk_size)
-        ):
-            start_time = time.perf_counter()
 
-            results = process_chunk(
-                chunk,
-                args.batch_size,
-                tokenizer,
-                model,
-                id2label,
+    # Initialize an empty list to store all results
+    all_results = []
+
+    for chunk_idx, chunk in enumerate(
+        process_large_file(args.input_file, args.chunk_size)
+    ):
+        start_time = time.perf_counter()
+
+        results = process_chunk(
+            chunk,
+            args.batch_size,
+            tokenizer,
+            model,
+            id2label,
+        )
+
+        # Add results to the list
+        all_results.extend(results)
+
+        end_time = time.perf_counter()
+
+        elapsed_time = end_time - start_time
+        throughput = len(chunk) / elapsed_time if elapsed_time > 0 else float("inf")
+
+        # Update totals
+        total_items += len(chunk)
+        total_time += elapsed_time
+        average_throughput = (
+            total_items / total_time if total_time > 0 else float("inf")
+        )
+
+        # Log progress every 100 chunks
+        if chunk_idx % 100 == 0:
+            print(
+                f"Chunk {chunk_idx}: Throughput = {throughput:.2f} items/s, "
+                f"Average Throughput = {average_throughput:.2f} items/s"
             )
 
-            f.write("\n".join(json.dumps(result) for result in results) + "\n")
+    # Convert results to DataFrame
+    df_results = pd.DataFrame(all_results)
 
-            end_time = time.perf_counter()
+    # Convert register_probabilities from dict to separate columns
+    final_df = pd.json_normalize(df_results)
 
-            elapsed_time = end_time - start_time
-            throughput = len(chunk) / elapsed_time if elapsed_time > 0 else float("inf")
+    # Get output path in predictions directory
+    input_path = args.input_file
+    file_name = os.path.basename(input_path)
+    output_dir = os.path.join(
+        os.path.dirname(os.path.dirname(input_path)), "predictions"
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, file_name)
 
-            # Update totals
-            total_items += len(chunk)
-            total_time += elapsed_time
-            average_throughput = (
-                total_items / total_time if total_time > 0 else float("inf")
-            )
-
-            # Log progress every 100 chunks
-            if chunk_idx % 100 == 0:
-                print(
-                    f"Chunk {chunk_idx}: Throughput = {throughput:.2f} items/s, "
-                    f"Average Throughput = {average_throughput:.2f} items/s"
-                )
+    # Save just the register probabilities to parquet
+    final_df.to_parquet(output_path, index=False)
 
 
 if __name__ == "__main__":
@@ -145,7 +151,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("input_file", type=str, help="Path to the input parquet file.")
-    parser.add_argument("output_file", type=str, help="Path to the output jsonl file.")
     parser.add_argument(
         "--model",
         type=str,
@@ -163,12 +168,6 @@ if __name__ == "__main__":
         type=int,
         default=1024,
         help="Number of items per chunk.",
-    )
-    parser.add_argument(
-        "--compile",
-        type=int,
-        default=1,
-        help="Whether to use torch compile.",
     )
     args = parser.parse_args()
     main(args)
