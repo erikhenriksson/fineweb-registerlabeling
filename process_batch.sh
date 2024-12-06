@@ -48,28 +48,19 @@ for i in "${!file_array[@]}"; do
     
     # Log start time
     log_event "$filename" "START"
+    log_event "$filename" "srun --ntasks=1 --gres=gpu:mi250:1 --mem=16G python3 $SCRIPT_DIR/process_parquet_file.py $input_path $output_path"
+
     
-    # Launch the Python script using srun
-    (
-        srun \
-            --ntasks=1 \
-            --gres=gpu:mi250:1 \
-            --mem=16G \
-            python3 "$SCRIPT_DIR/process_parquet_file.py" \
-            "$input_path" \
-            "$output_path" \
-            &
-        
-        exit_status=$?
-        
-        # Only log completion if successful
-        if [ $exit_status -eq 0 ]; then
-            log_event "$filename" "SUCCESS"
-        else
-            log_event "$filename" "FAIL: $exit_status"
-        fi
-    ) &
-done
+    srun \
+        --ntasks=1 \
+        --gres=gpu:mi250:1 \
+        --mem=16G \
+        python3 "$SCRIPT_DIR/process_parquet_file.py" \
+        "$input_path" \
+        "$output_path" \
+        && log_event "$filename" "SUCCESS" \
+        || log_event "$filename" "FAIL: $?"
+    done
 
 # Wait for all background processes to complete
 wait
