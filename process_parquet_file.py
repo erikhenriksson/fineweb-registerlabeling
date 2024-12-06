@@ -80,17 +80,26 @@ def process_chunk(chunk, batch_size, tokenizer, model, id2label):
     ]
 
 
-def write_incremental_parquet(results, output_file, first_write=False):
+def write_incremental_parquet(results, output_file, id2label, first_write=False):
     """Write results incrementally to parquet file."""
 
-    # Convert results to DataFrame
-    df = pd.json_normalize(results)
+    # Create a list of dictionaries with the desired structure
+    formatted_results = []
+    for result in results:
+        row = {"id": result["id"]}
+        # Add probabilities in the order specified by id2label
+        probs = result["register_probabilities"]
+        for idx in range(len(id2label)):
+            label = id2label[idx]
+            row[label] = probs[label]
+        formatted_results.append(row)
+
+    # Convert to DataFrame - no need for json_normalize now
+    df = pd.DataFrame(formatted_results)
 
     if first_write:
-        # First write - create new file
         df.to_parquet(output_file, index=False, engine="fastparquet")
     else:
-        # Append to existing file using fastparquet
         pf = ParquetFile(output_file)
         write(output_file, df, append=True, file_scheme="simple")
 
@@ -128,7 +137,7 @@ def main(args):
         )
 
         # Write results immediately instead of storing them
-        write_incremental_parquet(results, args.output_file, first_write)
+        write_incremental_parquet(results, args.output_file, id2label, first_write)
         first_write = False
 
         end_time = time.perf_counter()
