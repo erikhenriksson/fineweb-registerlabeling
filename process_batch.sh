@@ -59,7 +59,8 @@ for i in "${!file_array[@]}"; do
         "$input_path" \
         "$output_path" \
         && log_event "$filename" "SUCCESS" \
-        || log_event "$filename" "FAIL: $?"
+        || log_event "$filename" "FAIL: $?" \
+        &
     done
 
 # Wait for all background processes to complete
