@@ -14,13 +14,14 @@
 
 #SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
-source "common.sh"
+
 
 set -euo pipefail
 
 module use /appl/local/csc/modulefiles
 module load pytorch/2.4
-
+SCRIPT_DIR="$3"
+source "$SCRIPT_DIR/common.sh"
 SUBSET="$1"
 PARQUET_DIR="$ROOT_DIR/$DATA_DIR/$SUBSET"
 PREDICT_DIR="$ROOT_DIR/$PREDICT_DIR/$SUBSET"
@@ -54,7 +55,7 @@ for i in "${!file_array[@]}"; do
             --ntasks=1 \
             --gres=gpu:mi250:1 \
             --mem=16G \
-            python3 "process_parquet_file.py" \
+            python3 "$SCRIPT_DIR/process_parquet_file.py" \
             "$input_path" \
             "$output_path" \
             &

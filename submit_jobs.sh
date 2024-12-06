@@ -78,7 +78,7 @@ for ((batch=0; batch<num_batches; batch++)); do
     echo ""
     
     if [ "$TEST_MODE" = false ]; then
-        sbatch  "$PROCESS_BATCH" "$SUBSET" "$file_list"
+        sbatch  "$PROCESS_BATCH" "$SUBSET" "$file_list" "$SCRIPT_DIR"
         echo "Submitted batch $batch (files $start to $end)"
     fi
 done
