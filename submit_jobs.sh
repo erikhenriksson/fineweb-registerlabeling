@@ -3,8 +3,7 @@
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROCESS_BATCH="$SCRIPT_DIR/process_batch.sh"
 
-
-source common.sh
+source "$SCRIPT_DIR/common.sh"
 
 # Common has:
 # ROOT_DIR, DATA_DIR, PREDICT_DIR, TEST_MODE
