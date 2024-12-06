@@ -54,7 +54,7 @@ for i in "${!file_array[@]}"; do
             --ntasks=1 \
             --gres=gpu:mi250:1 \
             --mem=16G \
-            python3 "$SCRIPT_DIR/process_parquet_file.py" \
+            python3 "process_parquet_file.py" \
             "$input_path" \
             "$output_path" \
             &
