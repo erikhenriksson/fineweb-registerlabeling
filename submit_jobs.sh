@@ -1,5 +1,5 @@
 #!/bin/bash
-# At the start of your script:
+
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROCESS_BATCH="$SCRIPT_DIR/process_batch.sh"
 
