@@ -12,9 +12,9 @@
 #SBATCH --account=project_462000642
 #SBATCH --partition=small-g
 
-SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+#SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
-source "$SCRIPT_DIR/common.sh"
+source "common.sh"
 
 set -euo pipefail
 
